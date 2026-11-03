@@ -27,7 +27,8 @@
 --   coin          5                             btnU, btnD
 --   start1/2      1, 2                          btnL, btnR
 --   reset                                       btnC
---  Switches: sw15 audio off, sw14 gain, sw13 15 kHz RGB, sw0-sw7 DIP
+--  Switches: sw15 audio off, sw14 gain, sw13 15 kHz RGB, sw12:11 scanlines, sw10 decay
+--   off, sw9 filter off, sw0-sw7 DIP
 --  DIP bits: lives 1:0, bonus 3:2, coinage 6:4, cabinet 7, switch down = default
 --  Sound: walk, jump and stomp samples on three channels (MAME sample set)
 --  Clock: 1 MMCM, 24.576 MHz from 100 MHz
@@ -171,6 +172,8 @@ begin
         O_H_SYNCn      => native_hs,
         O_V_SYNCn      => native_vs,
         I_DIP_SW       => dip_sw,
+        I_SND_OPT      => sw(10 downto 8), -- sw9 filter off, sw10 decay off (sw8 reserved)
+        I_SCANLINES    => sw(12 downto 11), -- scanlines 00 off, 01 25 %, 10 50 %, 11 75 %
         AD             => AD
     );
 

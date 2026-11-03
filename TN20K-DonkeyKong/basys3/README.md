@@ -44,6 +44,9 @@ make clean       # remove roms, PROM VHDL and Vivado outputs
 | btnC            | reset                                         |
 | JA 1/2/3/4/7    | joystick right/left/down/up/jump (active low) |
 | sw0-sw7         | DIP switches (down = default, see below)      |
+| sw9 up          | low-pass filter off (see Sound)               |
+| sw10 up         | sound CPU decay off (see Sound)               |
+| sw12:sw11       | scanlines 00 off, 01 25 %, 10 50 %, 11 75 %   |
 | sw13 down       | 31 kHz VGA                                    |
 | sw13 up         | 15 kHz TV, composite sync on HS (not tested)  |
 | sw14 up         | PmodAMP2 gain                                 |
@@ -60,7 +63,15 @@ DIP switches (switch up inverts the default bit):
 
 ## Resource use
 
-To be recorded after the next build (gaz68 sample player, re-authored sample ROM).
+From a Vivado 2020.2 build:
+
+| Resource  | Used       | Util.                          |
+|-----------|------------|--------------------------------|
+| LUTs      | 3337       | 16.04%                         |
+| Registers | 1350       | 3.25%                          |
+| Block RAM | 19 tiles   | 38.00%                         |
+| DSPs      | 0          | 0.00%                          |
+| Clock     | 24.576 MHz | WNS +15.453 ns, WHS +0.080 ns  |
 
 ## Core changes for the Basys 3 port
 
@@ -73,8 +84,10 @@ Changes to the core files in `src/dkong/` (shared with the Tang Nano 20K project
   (`dkong_main.vhd`).
 - Re-authored sample ROM: address width and slot addresses of the core sample player
   (`dkong_main.vhd`, `dkong_wav_sound.vhd`), see Sound.
-- Sound: `dkong_main` generic `SND_EXT` (1 in both tops) selects the gaz68 sample player
-  (new `dkong_wav_gaz68.v`, `dkongjr_wav_dma.v`) in place of the core sample player.
+- Sound: `dkong_main` generic `SND_EXT` (1 in both tops) selects `dkong_snd_ext.v`
+  (multi-channel sample player, sound CPU decay and low-pass filter, 16-bit mixer) in
+  place of the core sample player and mixer. Options `I_SND_OPT` (sw9, sw10).
+- Scanlines: `dkong_main` input `I_SCANLINES` to the scan doubler (sw11, sw12).
 
 ## Sound
 
@@ -99,20 +112,27 @@ sound model):
   MAME emulates this. The sample player plays walk, jump and stomp after every reset
   (power-on and btnC), a side effect of its trigger detection.
 - Samples are fixed recordings: no variation per trigger, retriggers restart the sample.
-- The sound CPU output has no decay envelope (the board's DAC-08 discharge circuit).
+- Sound CPU decay (the board's DAC-08 discharge circuit) and the low-pass filter follow
+  the gaz68 MiSTer core models, as in the Donkey Kong Jr. port. sw9 and sw10 turn them
+  off.
 
 ## Third-party additions
 
-| File                                        | Function                   | Author  |
-|---------------------------------------------|----------------------------|---------|
-| `tools/tools_prom_src/src/make_vhdl_prom.c` | PROM-to-VHDL converter     | darfpga |
-| `src/dkong/dkongjr_wav_dma.v`               | sample player              | gaz68   |
-| `tools/dk_wave.bin` (re-authored)           | walk, jump, stomp samples  | MAME    |
+| File                                        | Function                  | Author   |
+|---------------------------------------------|---------------------------|----------|
+| `tools/tools_prom_src/src/make_vhdl_prom.c` | PROM-to-VHDL converter    | darfpga  |
+| `src/dkong/dkongjr_wav_dma.v`               | sample player             | gaz68    |
+| `src/dkong/dkongjr_dac.sv`                  | sound CPU decay           | gaz68    |
+| `src/dkong/dkongjr_iir_filter.v`            | low-pass filter           | G. Hogan |
+| `tools/dk_wave.bin` (re-authored)           | walk, jump, stomp samples | MAME     |
 
 - `make_vhdl_prom.c`: unmodified, from <https://github.com/pinballwizz/DE2-Xevious>
   (commit `a5d9eed`).
 - `dkongjr_wav_dma.v`: `dkongjr_wav_sound.v` of that core (commit `c38f456`), module
   renamed, volume multiply optional (off, no DSP), as in the Donkey Kong Jr. port.
+- `dkongjr_dac.sv`, `dkongjr_iir_filter.v` (Gregory Hogan, MIT): from the same core
+  (commit `c38f456`), multiplies kept out of DSP blocks (`use_dsp`), as in the Donkey
+  Kong Jr. port.
 - `dk_wave.bin`: MAME `dkong` sample set dated 2004-09-24, unmodified sample data, new
   layout. Source used: <https://github.com/douglaslassance/mame-setup> `samples/dkong.zip`
   (SHA-256 `28949f4b...625725`). `make_dkong_samples.py` checks each WAV's SHA-256 and
@@ -123,6 +143,6 @@ sound model):
 - The additions and changes made for the Basys 3 port are MIT licensed.
 - Core files (`src/dkong/*.vhd`): as stated in their headers, (c) 2012 d18c7db, GNU
   General Public License version 3 or later, originally by Katsumi Degawa in Verilog.
-- Other code keeps the terms stated in its files. `make_vhdl_prom.c`, `dkongjr_wav_dma.v`
-  and the sample data state no license.
+- Other code keeps the terms stated in its files. `make_vhdl_prom.c`, `dkongjr_wav_dma.v`,
+  `dkongjr_dac.sv` and the sample data state no license.
 - Roms and anything generated from them (PROM VHDL, bitstreams) are not distributed.

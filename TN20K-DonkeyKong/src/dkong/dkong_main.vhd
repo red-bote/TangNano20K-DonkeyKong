@@ -24,8 +24,8 @@ library ieee;
 -------------------------------------------------------------------------------------
 entity dkong_main is
 	generic(
-		-- sound: 0 core sample player (upstream), 1 multi-channel sample player,
-		-- three channels used (dkong_wav_gaz68: walk run01-03, jump, stomp)
+		-- sound: 0 core sample player and mixer (upstream), 1 multi-channel sample
+		-- player (walk run01-03, jump, stomp), 8035 decay and filter (dkong_snd_ext)
 		SND_EXT			: integer := 0
 	);
 	port(
@@ -69,6 +69,10 @@ entity dkong_main is
 		O_V_SYNCn		: out std_logic;
 		-- DIP switches (7D80), default upright, 3 lives, bonus 7000, 1 coin 1 credit
 		I_DIP_SW		: in  std_logic_vector( 7 downto 0) := "10000000";
+		-- sound options (SND_EXT = 1): [0] reserved, [1] filter off, [2] decay off
+		I_SND_OPT		: in  std_logic_vector( 2 downto 0) := "000";
+		-- scandoubler scanlines: 00 off, 01 25 %, 10 50 %, 11 75 %
+		I_SCANLINES		: in  std_logic_vector( 1 downto 0) := "00";
         --
         AD              : out std_logic_vector(15 downto 0)
 	);
@@ -125,16 +129,18 @@ architecture RTL of dkong_main is
 	signal W_W3_WE				: std_logic := '0';
 	signal W_W4_WE				: std_logic := '0';
 	signal mix_sound			: std_logic := '0';
-	signal snd_smp				: std_logic_vector( 9 downto 0) := (others => '0');
 	signal snd_ext_mix			: std_logic_vector( 7 downto 0) := (others => '0');
 	signal dac_in				: std_logic_vector( 7 downto 0) := (others => '0');
 
-	component dkong_wav_gaz68
+	component dkong_snd_ext
 	port(
 		I_CLK			: in  std_logic;
 		I_RSTn			: in  std_logic;
 		I_TRIG			: in  std_logic_vector(2 downto 0);
-		O_SAMPLE		: out std_logic_vector(9 downto 0)
+		I_DIG			: in  std_logic_vector(7 downto 0);
+		I_P2_7			: in  std_logic;
+		I_OPT			: in  std_logic_vector(2 downto 0);
+		O_DAC			: out std_logic_vector(7 downto 0)
 	);
 	end component;
 
@@ -661,6 +667,7 @@ U_3A4A: entity work.Gowin_DPB
     O_B       <= blu_in;
     O_H_SYNCn <= W_H_SYNCn;
     O_V_SYNCn <= W_V_SYNCn;
+    scanlines <= I_SCANLINES;
 -------------------------------------------------------------------
   u_dblscan : entity work.scandoubler
     port map (
@@ -743,32 +750,19 @@ U_3A4A: entity work.Gowin_DPB
 		I_SW			=> W_6H_Q(2 downto 0)
 	);
 -------------------------------------------------------------------
-	-- multi-channel sample player: walk, jump and stomp on three channels, mixed with the
-	-- 8035 sound in place of the core sample player and mixer
+	-- multi-channel sample player (walk, jump, stomp), 8035 sound with decay and
+	-- low-pass filter, 16-bit mixer, in place of the core sample player and mixer
 	snd_ext_on : if SND_EXT = 1 generate
-		samples : dkong_wav_gaz68
+		snd_ext : dkong_snd_ext
 		port map (
 			I_CLK		=> I_CLK_24576M,
 			I_RSTn		=> I_RESETn,
 			I_TRIG		=> W_6H_Q(2 downto 0),
-			O_SAMPLE	=> snd_smp
+			I_DIG		=> W_D_S_DAT,
+			I_P2_7		=> I8035_PBI(7),
+			I_OPT		=> I_SND_OPT,
+			O_DAC		=> snd_ext_mix
 		);
-
-		-- 8035 sound + signed sample sum, limited to 0..255 (offset binary, 512 = 0)
-		process(I_CLK_24576M)
-			variable sum : std_logic_vector(10 downto 0);
-		begin
-			if rising_edge(I_CLK_24576M) then
-				sum := ("000" & W_D_S_DAT) + ('0' & (snd_smp xor "1000000000"));
-				if (sum < "01000000000") then
-					snd_ext_mix <= (others => '0');
-				elsif (sum > "01011111111") then
-					snd_ext_mix <= (others => '1');
-				else
-					snd_ext_mix <= sum(7 downto 0);
-				end if;
-			end if;
-		end process;
 
 		dac_in <= snd_ext_mix;
 	end generate;

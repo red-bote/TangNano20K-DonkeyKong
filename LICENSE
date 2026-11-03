@@ -8,7 +8,8 @@ It does not cover:
   and the MiST scandoubler
 - content of the Basys 3 wrapper taken from the upstream board top
 - third-party code and data added for the port: Xilinx Clocking Wizard, make_vhdl_prom.c,
-  dkongjr_wav_dma.v (gaz68), the MAME dkong sample data in tools/dk_wave.bin
+  dkongjr_wav_dma.v and dkongjr_dac.sv (gaz68), dkongjr_iir_filter.v (Gregory Hogan,
+  MIT), the MAME dkong sample data in tools/dk_wave.bin
 
 These keep the terms stated in their files.
 

@@ -8,6 +8,9 @@
         <File path="src/scandoubler_new.v" type="file.verilog" enable="1"/>
         <File path="src/dkong/dkong_wav_gaz68.v" type="file.verilog" enable="1"/>
         <File path="src/dkong/dkongjr_wav_dma.v" type="file.verilog" enable="1"/>
+        <File path="src/dkong/dkong_snd_ext.v" type="file.verilog" enable="1"/>
+        <File path="src/dkong/dkongjr_dac.sv" type="file.verilog" enable="1"/>
+        <File path="src/dkong/dkongjr_iir_filter.v" type="file.verilog" enable="1"/>
         <File path="proms/ROM3N.vhd" type="file.vhdl" enable="1"/>
         <File path="proms/ROM3P.vhd" type="file.vhdl" enable="1"/>
         <File path="proms/ROM7C.vhd" type="file.vhdl" enable="1"/>
