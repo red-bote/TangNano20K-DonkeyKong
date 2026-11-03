@@ -83,6 +83,9 @@ begin
 end process;
 ---------------------------------------------------------------------------
 dkong : entity work.dkong_main
+	generic map (
+ SND_EXT        => 1    -- multi-channel sample player (walk run01-03, jump, stomp)
+	)
 	port map (
  I_CLK_24576M   => clock_25,
  WB_CLK_12288M  => clock_12,

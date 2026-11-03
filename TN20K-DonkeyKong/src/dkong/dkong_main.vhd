@@ -23,6 +23,11 @@ library ieee;
 --	use unisim.vcomponents.all;
 -------------------------------------------------------------------------------------
 entity dkong_main is
+	generic(
+		-- sound: 0 core sample player (upstream), 1 multi-channel sample player,
+		-- three channels used (dkong_wav_gaz68: walk run01-03, jump, stomp)
+		SND_EXT			: integer := 0
+	);
 	port(
 		-- FPGA_USE
 		I_CLK_24576M	: in  std_logic;
@@ -56,6 +61,14 @@ entity dkong_main is
 		O_VGA_B			: out std_logic_vector( 1 downto 0);
 		O_VGA_H_SYNCn	: out std_logic;
 		O_VGA_V_SYNCn	: out std_logic;
+		-- native video (15 kHz), before the scandoubler
+		O_R				: out std_logic_vector( 5 downto 0);
+		O_G				: out std_logic_vector( 5 downto 0);
+		O_B				: out std_logic_vector( 5 downto 0);
+		O_H_SYNCn		: out std_logic;
+		O_V_SYNCn		: out std_logic;
+		-- DIP switches (7D80), default upright, 3 lives, bonus 7000, 1 coin 1 credit
+		I_DIP_SW		: in  std_logic_vector( 7 downto 0) := "10000000";
         --
         AD              : out std_logic_vector(15 downto 0)
 	);
@@ -112,6 +125,18 @@ architecture RTL of dkong_main is
 	signal W_W3_WE				: std_logic := '0';
 	signal W_W4_WE				: std_logic := '0';
 	signal mix_sound			: std_logic := '0';
+	signal snd_smp				: std_logic_vector( 9 downto 0) := (others => '0');
+	signal snd_ext_mix			: std_logic_vector( 7 downto 0) := (others => '0');
+	signal dac_in				: std_logic_vector( 7 downto 0) := (others => '0');
+
+	component dkong_wav_gaz68
+	port(
+		I_CLK			: in  std_logic;
+		I_RSTn			: in  std_logic;
+		I_TRIG			: in  std_logic_vector(2 downto 0);
+		O_SAMPLE		: out std_logic_vector(9 downto 0)
+	);
+	end component;
 
 	signal I8035_DBI			: std_logic_vector( 7 downto 0) := (others => '0');
 	signal I8035_DBO			: std_logic_vector( 7 downto 0) := (others => '0');
@@ -193,6 +218,8 @@ architecture RTL of dkong_main is
     signal red_out              : std_logic_vector (5 downto 0);
     signal grn_out              : std_logic_vector (5 downto 0);
     signal blu_out              : std_logic_vector (5 downto 0);
+    -- scandoubler (Verilog) scanlines through a signal, Vivado rejects the literal
+    signal scanlines            : std_logic_vector (1 downto 0) := "00";
 --------------------------------------------------------------------------------------
 begin
 
@@ -228,7 +255,7 @@ end process;
 	W_SW3						<=  I_C1 &  "1" &  "1" &  "1" & I_S2 & I_S1 &  "1" &  "1";
 	-----------------------|---------------------------------------------------------
 	-- 7D80(R)   DIP       |
-	W_DIP						<=   "1" &  "0" &  "0" &  "0" &  "0" &  "0" &  "0" &  "0";
+	W_DIP						<=   I_DIP_SW;
 	--     DIP_LIVES    3  |                                             0      0
 	--                  4  |                                             0      1
 	--                  5  |                                             1      0
@@ -438,7 +465,7 @@ end process;
 	ROM_WAV : entity work.dkong_wav
    port map(
    clk  => W_CLK_12288M,
-   addr => wav_addr(15 downto 0),
+   addr => wav_addr(14 downto 0), -- 20480-byte re-authored dk_wave.bin
    data => do_wav
    );
 ------------------------------------------------
@@ -628,6 +655,12 @@ U_3A4A: entity work.Gowin_DPB
     red_in <= W_R & W_R when W_V_BLANKn = '1' else "000000";
     grn_in <= W_G & W_G when W_V_BLANKn = '1' else "000000";
     blu_in <= W_B & W_B & W_B when W_V_BLANKn = '1' else "000000";
+
+    O_R       <= red_in;
+    O_G       <= grn_in;
+    O_B       <= blu_in;
+    O_H_SYNCn <= W_H_SYNCn;
+    O_V_SYNCn <= W_V_SYNCn;
 -------------------------------------------------------------------
   u_dblscan : entity work.scandoubler
     port map (
@@ -642,7 +675,7 @@ U_3A4A: entity work.Gowin_DPB
 		b_out   => blu_out,
 		hs_out  => O_VGA_H_SYNCn,
 		vs_out  => O_VGA_V_SYNCn,
-		scanlines => "00"
+		scanlines => scanlines
 	);
 
  O_VGA_R <= red_out(5 downto 3);
@@ -710,12 +743,46 @@ U_3A4A: entity work.Gowin_DPB
 		I_SW			=> W_6H_Q(2 downto 0)
 	);
 -------------------------------------------------------------------
+	-- multi-channel sample player: walk, jump and stomp on three channels, mixed with the
+	-- 8035 sound in place of the core sample player and mixer
+	snd_ext_on : if SND_EXT = 1 generate
+		samples : dkong_wav_gaz68
+		port map (
+			I_CLK		=> I_CLK_24576M,
+			I_RSTn		=> I_RESETn,
+			I_TRIG		=> W_6H_Q(2 downto 0),
+			O_SAMPLE	=> snd_smp
+		);
+
+		-- 8035 sound + signed sample sum, limited to 0..255 (offset binary, 512 = 0)
+		process(I_CLK_24576M)
+			variable sum : std_logic_vector(10 downto 0);
+		begin
+			if rising_edge(I_CLK_24576M) then
+				sum := ("000" & W_D_S_DAT) + ('0' & (snd_smp xor "1000000000"));
+				if (sum < "01000000000") then
+					snd_ext_mix <= (others => '0');
+				elsif (sum > "01011111111") then
+					snd_ext_mix <= (others => '1');
+				else
+					snd_ext_mix <= sum(7 downto 0);
+				end if;
+			end if;
+		end process;
+
+		dac_in <= snd_ext_mix;
+	end generate;
+
+	snd_ext_off : if SND_EXT /= 1 generate
+		dac_in <= dac_di(7 downto 0);
+	end generate;
+
 	-- D-A convertor
 	wav_dac : entity work.dac
 	port map (
 		clk_i			=> I_CLK_24576M,
 		res_n_i			=> I_RESETn,
-		dac_i			=> dac_di(7 downto 0),
+		dac_i			=> dac_in,
 		dac_o			=> mix_sound
 	);
 -------------------------------------------------------------------

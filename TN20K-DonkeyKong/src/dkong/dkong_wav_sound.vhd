@@ -42,8 +42,6 @@ architecture RTL of dkong_wav_sound is
 	signal sample			: std_logic_vector(11 downto 0) := (others => '0');
 
 	signal wav_ad			: std_logic_vector(15 downto 0) := (others => '0');
-	signal jump_offset	: std_logic_vector( 3 downto 0) := (others => '0');
-	signal foot_offset	: std_logic_vector( 3 downto 0) := (others => '0');
 
 	signal sw0				: std_logic_vector( 1 downto 0) := (others => '0');
 	signal sw1				: std_logic_vector( 1 downto 0) := (others => '0');
@@ -120,16 +118,16 @@ begin
 		end if;
 	end process;
 
-	jump_offset <= ("000" & ad_cnt(12)) + 1; --"0001";
-	foot_offset <= ("000" & ad_cnt(12)) + 3; --"0011";
+	-- slot bases of the re-authored tools/dk_wave.bin (Basys 3 port): walk run03 0x1000,
+	-- stomp 0x1800, jump 0x3000 (were 0x0000, 0x3000, 0x1000)
 
 	process(I_CLK)
 	begin
 		if rising_edge(I_CLK) then
 			case status2 is
-				when "01" => wav_ad <= foot_offset & ad_cnt(11 downto 0);
-				when "10" => wav_ad <=       "000" & ad_cnt ;
-				when "11" => wav_ad <= jump_offset & ad_cnt(11 downto 0);
+				when "01" => wav_ad <= x"1800" + ("000" & ad_cnt);
+				when "10" => wav_ad <= x"1000" + ("000" & ad_cnt);
+				when "11" => wav_ad <= x"3000" + ("000" & ad_cnt);
 				when others => null;
 			end case;
 		end if;

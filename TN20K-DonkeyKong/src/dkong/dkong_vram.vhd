@@ -78,6 +78,7 @@ architecture RTL of dkong_vram is
 	signal W_cnt_AB	: std_logic_vector(9 downto 0) := (others => '0');
 	signal W_vram_AB	: std_logic_vector(9 downto 0) := (others => '0');
 	signal W_2N_DO		: std_logic_vector(3 downto 0) := (others => '0');
+	signal W_2N_DO8		: std_logic_vector(7 downto 0) := (others => '0');
 	signal W_2N_AD		: std_logic_vector(7 downto 0) := (others => '0');
 	signal W_2N_DI		: std_logic_vector(3 downto 0) := (others => '0');
 	signal W_3P_DO		: std_logic_vector(7 downto 0) := (others => '0');
@@ -132,8 +133,10 @@ begin
    port map(
    clk  => CLK_12M,
    addr => W_2N_AD,
-   data(3 downto 0) => W_2N_DO
+   data => W_2N_DO8
    );
+	-- PROM data is 8 bits, bits 7:4 unused
+	W_2N_DO <= W_2N_DO8(3 downto 0);
 -------------------------------------------------------------
 	--    Parts  2M
 	--process(CLK_2M)
