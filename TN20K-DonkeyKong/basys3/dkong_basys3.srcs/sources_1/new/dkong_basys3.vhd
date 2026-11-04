@@ -27,8 +27,8 @@
 --   coin          5                             btnU, btnD
 --   start1/2      1, 2                          btnL, btnR
 --   reset                                       btnC
---  Switches: sw15 audio off, sw14 gain, sw13 15 kHz RGB, sw12:11 scanlines, sw10 decay
---   off, sw9 filter off, sw0-sw7 DIP
+--  Switches: sw15 audio off, sw14 scanlines, sw13 15 kHz RGB, sw11 filter off, sw10
+--   decay off, sw0-sw7 DIP
 --  DIP bits: lives 1:0, bonus 3:2, coinage 6:4, cabinet 7, switch down = default
 --  Sound: walk, jump and stomp samples on three channels (MAME sample set)
 --  Clock: 1 MMCM, 24.576 MHz from 100 MHz
@@ -108,6 +108,8 @@ architecture struct of dkong_basys3 is
     signal clock_4hz       : std_logic;
     signal AD              : std_logic_vector(15 downto 0);
     signal dip_sw          : std_logic_vector(7 downto 0);
+    signal snd_opt         : std_logic_vector(2 downto 0);
+    signal scanlines       : std_logic_vector(1 downto 0);
 
 ---------------------------------------------------------------------------
 begin
@@ -136,6 +138,13 @@ begin
 ---------------------------------------------------------------------------
     -- DIP switches: switch up inverts the default bit (upright cabinet)
     dip_sw <= "10000000" xor sw(7 downto 0);
+
+    -- sound options from sw12 down: sw11 filter off, sw10 decay off (sw12 reserved).
+    -- I_SND_OPT: [0] reserved, [1] filter off, [2] decay off
+    snd_opt <= sw(10) & sw(11) & '0';
+
+    -- sw14 up: scanlines, alternate lines at 50 % brightness (31 kHz output only)
+    scanlines <= "10" when sw(14) = '1' else "00";
 
 ---------------------------------------------------------------------------
     dkong : entity work.dkong_main
@@ -172,8 +181,8 @@ begin
         O_H_SYNCn      => native_hs,
         O_V_SYNCn      => native_vs,
         I_DIP_SW       => dip_sw,
-        I_SND_OPT      => sw(10 downto 8), -- sw9 filter off, sw10 decay off (sw8 reserved)
-        I_SCANLINES    => sw(12 downto 11), -- scanlines 00 off, 01 25 %, 10 50 %, 11 75 %
+        I_SND_OPT      => snd_opt,
+        I_SCANLINES    => scanlines,
         AD             => AD
     );
 
@@ -206,9 +215,9 @@ begin
     -- PmodAMP2
 
     JXADC(0) <= audio;
-    JXADC(1) <= not sw(14); -- PmodAMP2 GAIN (JXADC2), active low: sw14 up = gain
+    JXADC(1) <= '1';        -- PmodAMP2 GAIN (JXADC2), active low: fixed low gain
     JXADC(2) <= '0';
-    JXADC(3) <= not sw(15); -- PmodAMP2 SHUTD (JXADC4), active low: sw15 up = shut down
+    JXADC(3) <= not sw(15); -- PmodAMP2 SHUTD (JXADC4), active low: sw15 up = audio off
 
 -----------------------------------------------------------------
     -- get scancode from keyboard

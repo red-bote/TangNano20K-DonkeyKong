@@ -44,13 +44,13 @@ make clean       # remove roms, PROM VHDL and Vivado outputs
 | btnC            | reset                                         |
 | JA 1/2/3/4/7    | joystick right/left/down/up/jump (active low) |
 | sw0-sw7         | DIP switches (down = default, see below)      |
-| sw9 up          | low-pass filter off (see Sound)               |
 | sw10 up         | sound CPU decay off (see Sound)               |
-| sw12:sw11       | scanlines 00 off, 01 25 %, 10 50 %, 11 75 %   |
+| sw11 up         | low-pass filter off (see Sound)               |
+| sw12            | reserved                                      |
 | sw13 down       | 31 kHz VGA                                    |
 | sw13 up         | 15 kHz TV, composite sync on HS (not tested)  |
-| sw14 up         | PmodAMP2 gain                                 |
-| sw15 up         | PmodAMP2 shutdown (mute)                      |
+| sw14 up         | scanlines, alternate lines at 50 %, 31 kHz    |
+| sw15 up         | audio off (PmodAMP2 shutdown)                 |
 
 DIP switches (switch up inverts the default bit):
 
@@ -86,8 +86,8 @@ Changes to the core files in `src/dkong/` (shared with the Tang Nano 20K project
   (`dkong_main.vhd`, `dkong_wav_sound.vhd`), see Sound.
 - Sound: `dkong_main` generic `SND_EXT` (1 in both tops) selects `dkong_snd_ext.v`
   (multi-channel sample player, sound CPU decay and low-pass filter, 16-bit mixer) in
-  place of the core sample player and mixer. Options `I_SND_OPT` (sw9, sw10).
-- Scanlines: `dkong_main` input `I_SCANLINES` to the scan doubler (sw11, sw12).
+  place of the core sample player and mixer. Options `I_SND_OPT` (sw11, sw10).
+- Scanlines: `dkong_main` input `I_SCANLINES` to the scan doubler (sw14, 50 %).
 
 ## Sound
 
@@ -113,7 +113,7 @@ sound model):
   (power-on and btnC), a side effect of its trigger detection.
 - Samples are fixed recordings: no variation per trigger, retriggers restart the sample.
 - Sound CPU decay (the board's DAC-08 discharge circuit) and the low-pass filter follow
-  the gaz68 MiSTer core models, as in the Donkey Kong Jr. port. sw9 and sw10 turn them
+  the gaz68 MiSTer core models, as in the Donkey Kong Jr. port. sw11 and sw10 turn them
   off.
 
 ## Third-party additions
