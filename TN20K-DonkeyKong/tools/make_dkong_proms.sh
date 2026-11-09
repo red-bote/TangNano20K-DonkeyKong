@@ -3,13 +3,12 @@
 # make_dkong_proms.bat):
 #   1. compile make_vhdl_prom into tools_prom_src/bin/
 #   2. unzip ROMZIP (comma-separated) or ${ROMDIR:-~/roms}/dkong.zip into unzip/
-#   3. write the PROM VHDL and the stamp .done into ../proms/
+#   3. write the PROM VHDL into ../proms/
 #   4. sample ROM: re-author dk_wave.bin from SAMPLEZIP or
 #      ${ROMDIR:-~/roms}/samples/dkong.zip (MAME sample set: run01-03, jump, dkstomp)
 #      when present, else keep the tracked dk_wave.bin, then write
 #      ../proms/snd/dkong_wav.vhd from it
-# make_vhdl_prom names the entity after the output file, so it writes into unzip/ and
-# the result is moved.
+#   5. create ../proms/.done, a marker file the Makefile checks before a bitstream build
 set -euo pipefail
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
@@ -73,6 +72,6 @@ fi
 "$TOOL" "$HERE/dk_wave.bin" dkong_wav.vhd
 mv -f dkong_wav.vhd "$PROM_DIR/snd/dkong_wav.vhd"
 
-touch "$PROM_DIR/.done"   # stamp for the Makefile bitstream prerequisite
+touch "$PROM_DIR/.done"
 echo "PROM VHDL in $PROM_DIR:"
 ls -1 "$PROM_DIR"
